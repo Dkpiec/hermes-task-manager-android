@@ -63,6 +63,7 @@ class MainActivity : FragmentActivity() {
         val displayedTasks = remember(allTasks, currentFilter, currentProjectId) {
             when {
                 currentProjectId != null -> allTasks.filter { it.projectId == currentProjectId }
+                currentFilter == "emails" -> allTasks.filter { it.projectId == "email_actions" || it.tags.contains("email") }
                 currentFilter == "today" -> allTasks.filter { !it.dueDate.isNullOrBlank() && it.dueDate.startsWith("2026-10-08") }
                 currentFilter == "upcoming" -> allTasks.filter { !it.dueDate.isNullOrBlank() }
                 currentFilter == "hermes" -> allTasks.filter { it.managedByHermes }

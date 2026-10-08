@@ -53,6 +53,7 @@ fun HomeScreen(
     val todayCount = allTasks.count { it.status != "done" && !it.dueDate.isNullOrBlank() && it.dueDate.startsWith("2026-10-08") }
     val upcomingCount = allTasks.count { it.status != "done" && !it.dueDate.isNullOrBlank() }
     val hermesCount = allTasks.count { it.status != "done" && it.managedByHermes }
+    val emailCount = allTasks.count { it.status != "done" && (it.projectId == "email_actions" || it.tags.contains("email")) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -157,6 +158,17 @@ fun HomeScreen(
                         }
                     )
                     DrawerItem(
+                        icon = Icons.Default.Email,
+                        title = "Email Action Items",
+                        count = emailCount,
+                        isSelected = currentFilter == "emails" || currentProjectId == "email_actions",
+                        accentTint = Color(0xFF2563EB),
+                        onClick = {
+                            onFilterChange("emails", "email_actions")
+                            scope.launch { drawerState.close() }
+                        }
+                    )
+                    DrawerItem(
                         icon = Icons.Default.ViewKanban,
                         title = "Kanban Board",
                         badgeText = "BOARD",
@@ -232,6 +244,7 @@ fun HomeScreen(
                                     currentFilter == "today" -> "Today"
                                     currentFilter == "upcoming" -> "Upcoming"
                                     currentFilter == "hermes" -> "Managed by Hermes"
+                                    currentFilter == "emails" -> "Email Action Items"
                                     else -> "Inbox"
                                 },
                                 fontWeight = FontWeight.Bold,
