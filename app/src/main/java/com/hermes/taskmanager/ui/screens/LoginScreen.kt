@@ -22,14 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hermes.taskmanager.ui.theme.TodoistRed
 
-const val DEFAULT_SERVER_URL = "https://librarian-sink-arabia-exclusion.trycloudflare.com"
+const val DEFAULT_SERVER_URL = "https://outcome-lift-future-holdings.trycloudflare.com"
 
 @Composable
 fun LoginScreen(
     onLoginClick: (serverUrl: String, username: String, password: String, pinToSet: String?) -> Unit
 ) {
     var serverUrl by remember { mutableStateOf(DEFAULT_SERVER_URL) }
-    var showServerConfig by remember { mutableStateOf(false) }
+    var showServerConfig by remember { mutableStateOf(true) }
     var username by remember { mutableStateOf("dhar") }
     var password by remember { mutableStateOf("") }
     var pinToSet by remember { mutableStateOf("") }

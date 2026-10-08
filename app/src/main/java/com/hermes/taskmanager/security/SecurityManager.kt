@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-const val CLOUD_SERVER_URL = "https://librarian-sink-arabia-exclusion.trycloudflare.com"
+const val CLOUD_SERVER_URL = "https://outcome-lift-future-holdings.trycloudflare.com"
 
 class SecurityManager(context: Context) {
 
@@ -28,7 +28,7 @@ class SecurityManager(context: Context) {
     var serverUrl: String
         get() {
             val url = prefs.getString("server_url", CLOUD_SERVER_URL) ?: CLOUD_SERVER_URL
-            return if (url.contains("161.118.184.188") || url.contains("sslip.io") || url.isBlank()) {
+            return if (url.contains("161.118.184.188") || url.contains("sslip.io") || url.contains("librarian-sink") || url.isBlank()) {
                 CLOUD_SERVER_URL
             } else {
                 url
