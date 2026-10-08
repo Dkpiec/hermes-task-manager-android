@@ -1,5 +1,6 @@
 package com.hermes.taskmanager.api
 
+import com.google.gson.*
 import com.hermes.taskmanager.models.*
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -7,6 +8,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
+import java.lang.reflect.Type
 import java.util.concurrent.TimeUnit
 
 interface HermesApiService {
@@ -80,15 +82,36 @@ interface HermesApiService {
             }
             val client = OkHttpClient.Builder()
                 .addInterceptor(logging)
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(15, TimeUnit.SECONDS)
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
                 .build()
+
+            val booleanAdapter = JsonDeserializer<Boolean> { json, _, _ ->
+                try {
+                    if (json.isJsonPrimitive) {
+                        val prim = json.asJsonPrimitive
+                        if (prim.isBoolean) prim.asBoolean
+                        else if (prim.isNumber) prim.asInt != 0
+                        else prim.asString.equals("true", ignoreCase = true) || prim.asString == "1"
+                    } else {
+                        false
+                    }
+                } catch (e: Exception) {
+                    false
+                }
+            }
+
+            val gson = GsonBuilder()
+                .registerTypeAdapter(Boolean::class.java, booleanAdapter)
+                .registerTypeAdapter(java.lang.Boolean::class.java, booleanAdapter)
+                .setLenient()
+                .create()
 
             val cleanUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
             return Retrofit.Builder()
                 .baseUrl(cleanUrl)
                 .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
                 .create(HermesApiService::class.java)
         }

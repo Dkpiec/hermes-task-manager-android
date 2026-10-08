@@ -56,10 +56,13 @@ class MainActivity : FragmentActivity() {
         var currentFilter by remember { mutableStateOf("inbox") }
         var isKanbanOpen by remember { mutableStateOf(false) }
         var kanbanBoard by remember { mutableStateOf<Map<String, List<Task>>>(emptyMap()) }
+        var isLoading by remember { mutableStateOf(false) }
 
         fun refreshTasks() {
             val token = securityManager.authToken ?: return
-            val service = apiService ?: return
+            val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+            val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
+            isLoading = true
             lifecycleScope.launch {
                 try {
                     val res = withContext(Dispatchers.IO) {
@@ -71,21 +74,26 @@ class MainActivity : FragmentActivity() {
                     }
                     tasks = res
                 } catch (e: Exception) {
-                    // Fallback
+                    Toast.makeText(this@MainActivity, "Sync error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isLoading = false
                 }
             }
         }
 
         fun refreshKanban() {
             val token = securityManager.authToken ?: return
-            val service = apiService ?: return
+            val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+            val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
             lifecycleScope.launch {
                 try {
                     val board = withContext(Dispatchers.IO) {
                         service.getKanbanBoard("Bearer $token")
                     }
                     kanbanBoard = board
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Kanban sync error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
@@ -155,7 +163,8 @@ class MainActivity : FragmentActivity() {
                         onFilterChange = { currentFilter = it },
                         onToggleTaskDone = { task ->
                             val token = securityManager.authToken ?: return@HomeScreen
-                            val service = apiService ?: return@HomeScreen
+                            val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+                            val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
                             val newStatus = if (task.status == "done") "backlog" else "done"
                             lifecycleScope.launch {
                                 withContext(Dispatchers.IO) {
@@ -167,7 +176,8 @@ class MainActivity : FragmentActivity() {
                         onTaskClick = {},
                         onAddTask = { title, desc, due, priority, managed ->
                             val token = securityManager.authToken ?: return@HomeScreen
-                            val service = apiService ?: return@HomeScreen
+                            val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+                            val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
                             lifecycleScope.launch {
                                 withContext(Dispatchers.IO) {
                                     service.createTask(
