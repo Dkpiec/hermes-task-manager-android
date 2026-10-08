@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+const val CLOUD_SERVER_URL = "https://librarian-sink-arabia-exclusion.trycloudflare.com"
+
 class SecurityManager(context: Context) {
 
     private val masterKey = MasterKey.Builder(context)
@@ -14,17 +16,24 @@ class SecurityManager(context: Context) {
     private val prefs: SharedPreferences = try {
         EncryptedSharedPreferences.create(
             context,
-            "hermes_secure_prefs",
+            "hermes_secure_prefs_v2",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     } catch (e: Exception) {
-        context.getSharedPreferences("hermes_fallback_prefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences("hermes_fallback_prefs_v2", Context.MODE_PRIVATE)
     }
 
     var serverUrl: String
-        get() = prefs.getString("server_url", "https://tasks.161.118.184.188.sslip.io") ?: "https://tasks.161.118.184.188.sslip.io"
+        get() {
+            val url = prefs.getString("server_url", CLOUD_SERVER_URL) ?: CLOUD_SERVER_URL
+            return if (url.contains("161.118.184.188") || url.contains("sslip.io") || url.isBlank()) {
+                CLOUD_SERVER_URL
+            } else {
+                url
+            }
+        }
         set(value) = prefs.edit().putString("server_url", value).apply()
 
     var authToken: String?
