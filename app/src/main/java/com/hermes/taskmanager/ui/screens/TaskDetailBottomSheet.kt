@@ -300,6 +300,7 @@ fun TaskDetailBottomSheet(
                             attachment = att,
                             serverUrl = serverUrl,
                             token = token,
+                            apiService = apiService,
                             onReadEmail = { emailText ->
                                 selectedEmailText = emailText
                             }
@@ -443,6 +444,7 @@ fun AttachmentCard(
     attachment: TaskAttachment,
     serverUrl: String,
     token: String,
+    apiService: HermesApiService,
     onReadEmail: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -460,15 +462,12 @@ fun AttachmentCard(
                     isLoadingText = true
                     scope.launch {
                         try {
-                            val text = withContext(Dispatchers.IO) {
-                                val url = java.net.URL(fileUrl)
-                                val conn = url.openConnection() as java.net.HttpURLConnection
-                                conn.setRequestProperty("Authorization", "Bearer $token")
-                                conn.inputStream.bufferedReader().use { it.readText() }
+                            val res = withContext(Dispatchers.IO) {
+                                apiService.getAttachmentContent("Bearer $token", attachment.id)
                             }
+                            val text = res["content"]?.toString() ?: "No content available in attachment."
                             onReadEmail(text)
                         } catch (e: Exception) {
-                            // Open in browser
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(fileUrl))
                             context.startActivity(intent)
                         } finally {

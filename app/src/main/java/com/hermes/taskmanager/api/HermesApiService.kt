@@ -75,6 +75,12 @@ interface HermesApiService {
         @Path("id") id: String
     ): Map<String, Any>
 
+    @GET("api/v1/attachments/{id}/content")
+    suspend fun getAttachmentContent(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): Map<String, Any>
+
     companion object {
         fun create(baseUrl: String): HermesApiService {
             val logging = HttpLoggingInterceptor().apply {
