@@ -25,23 +25,23 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Debug APK with Gradle
-        run: gradle assembleDebug --stacktrace --no-daemon
+      - name: Build Release APK with Gradle
+        run: gradle assembleRelease --stacktrace --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: HermesTaskManager-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
 
       - name: Create Release & Upload APK
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         with:
-          tag_name: v1.0.0
-          name: "Hermes Task Manager v1.0.0 (Android APK)"
+          tag_name: v1.0.2
+          name: "Hermes Task Manager v1.0.2 (Android APK)"
           body: "Official Android APK release for Hermes Task Manager with Todoist UI, Quick PIN, and live sync."
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
         env:
