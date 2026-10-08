@@ -98,8 +98,7 @@ class MainActivity : FragmentActivity() {
         when (authState) {
             "login" -> {
                 LoginScreen(
-                    onLoginClick = { username, password, pin ->
-                        val targetUrl = DEFAULT_SERVER_URL
+                    onLoginClick = { targetUrl, username, password, pin ->
                         lifecycleScope.launch {
                             try {
                                 val client = HermesApiService.create(targetUrl)

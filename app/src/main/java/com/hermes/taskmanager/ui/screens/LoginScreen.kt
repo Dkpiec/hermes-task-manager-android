@@ -1,5 +1,6 @@
 package com.hermes.taskmanager.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,12 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hermes.taskmanager.ui.theme.TodoistRed
 
-const val DEFAULT_SERVER_URL = "http://161.118.184.188:8050"
+const val DEFAULT_SERVER_URL = "https://librarian-sink-arabia-exclusion.trycloudflare.com"
 
 @Composable
 fun LoginScreen(
-    onLoginClick: (username: String, password: String, pinToSet: String?) -> Unit
+    onLoginClick: (serverUrl: String, username: String, password: String, pinToSet: String?) -> Unit
 ) {
+    var serverUrl by remember { mutableStateOf(DEFAULT_SERVER_URL) }
+    var showServerConfig by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("dhar") }
     var password by remember { mutableStateOf("") }
     var pinToSet by remember { mutableStateOf("") }
@@ -138,6 +142,26 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                AnimatedVisibility(visible = showServerConfig) {
+                    Column {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value = serverUrl,
+                            onValueChange = { serverUrl = it },
+                            label = { Text("Server URL (Advanced)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = TodoistRed,
+                                unfocusedBorderColor = Color(0xFFE5E7EB),
+                                focusedContainerColor = Color(0xFFFAFAFA),
+                                unfocusedContainerColor = Color(0xFFFAFAFA)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -153,6 +177,7 @@ fun LoginScreen(
                     onClick = {
                         val cleanUser = username.trim()
                         val cleanPass = password.trim()
+                        val cleanUrl = serverUrl.trim().trimEnd('/')
 
                         if (cleanUser.isEmpty() || cleanPass.isEmpty()) {
                             errorMessage = "Please enter both username and password"
@@ -161,7 +186,7 @@ fun LoginScreen(
 
                         isLoading = true
                         errorMessage = null
-                        onLoginClick(cleanUser, cleanPass, pinToSet.trim().ifEmpty { null })
+                        onLoginClick(cleanUrl, cleanUser, cleanPass, pinToSet.trim().ifEmpty { null })
                     },
                     enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = TodoistRed),
@@ -175,6 +200,20 @@ fun LoginScreen(
                     } else {
                         Text("Sign In", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                IconButton(
+                    onClick = { showServerConfig = !showServerConfig },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Config",
+                        tint = Color(0xFF9CA3AF),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
