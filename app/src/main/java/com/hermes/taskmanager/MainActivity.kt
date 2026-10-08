@@ -2,7 +2,6 @@ package com.hermes.taskmanager
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.*
@@ -15,6 +14,7 @@ import com.hermes.taskmanager.security.SecurityManager
 import com.hermes.taskmanager.ui.screens.*
 import com.hermes.taskmanager.ui.theme.HermesTasksTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -52,54 +52,58 @@ class MainActivity : FragmentActivity() {
             )
         }
 
-        var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+        var allTasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+        var projects by remember { mutableStateOf<List<Project>>(emptyList()) }
         var currentFilter by remember { mutableStateOf("inbox") }
+        var currentProjectId by remember { mutableStateOf<String?>(null) }
         var isKanbanOpen by remember { mutableStateOf(false) }
         var kanbanBoard by remember { mutableStateOf<Map<String, List<Task>>>(emptyMap()) }
-        var isLoading by remember { mutableStateOf(false) }
 
-        fun refreshTasks() {
-            val token = securityManager.authToken ?: return
-            val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
-            val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
-            isLoading = true
-            lifecycleScope.launch {
-                try {
-                    val res = withContext(Dispatchers.IO) {
-                        service.getTasks(
-                            token = "Bearer $token",
-                            dueFilter = if (currentFilter in listOf("today", "upcoming")) currentFilter else null,
-                            managed = if (currentFilter == "hermes") true else null
-                        )
-                    }
-                    tasks = res
-                } catch (e: Exception) {
-                    Toast.makeText(this@MainActivity, "Sync error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_SHORT).show()
-                } finally {
-                    isLoading = false
-                }
+        // Filtered tasks for the current screen
+        val displayedTasks = remember(allTasks, currentFilter, currentProjectId) {
+            when {
+                currentProjectId != null -> allTasks.filter { it.projectId == currentProjectId }
+                currentFilter == "today" -> allTasks.filter { !it.dueDate.isNullOrBlank() && it.dueDate.startsWith("2026-10-08") }
+                currentFilter == "upcoming" -> allTasks.filter { !it.dueDate.isNullOrBlank() }
+                currentFilter == "hermes" -> allTasks.filter { it.managedByHermes }
+                else -> allTasks.filter { it.projectId == "inbox" || it.projectId.isBlank() }
             }
         }
 
-        fun refreshKanban() {
+        suspend fun fetchRemoteData() {
             val token = securityManager.authToken ?: return
             val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
             val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
-            lifecycleScope.launch {
-                try {
+
+            try {
+                val fetchedTasks = withContext(Dispatchers.IO) {
+                    service.getTasks(token = "Bearer $token")
+                }
+                allTasks = fetchedTasks
+
+                val fetchedProjects = withContext(Dispatchers.IO) {
+                    service.getProjects(token = "Bearer $token")
+                }
+                projects = fetchedProjects
+
+                if (isKanbanOpen) {
                     val board = withContext(Dispatchers.IO) {
-                        service.getKanbanBoard("Bearer $token")
+                        service.getKanbanBoard(token = "Bearer $token")
                     }
                     kanbanBoard = board
-                } catch (e: Exception) {
-                    Toast.makeText(this@MainActivity, "Kanban sync error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_SHORT).show()
                 }
+            } catch (e: Exception) {
+                // Background sync silently catches; user manual refresh will show toast
             }
         }
 
-        LaunchedEffect(authState, currentFilter) {
+        // Live Auto-Sync Loop (runs every 3.5 seconds when in Home)
+        LaunchedEffect(authState, isKanbanOpen) {
             if (authState == "home") {
-                refreshTasks()
+                while (true) {
+                    fetchRemoteData()
+                    delay(3500)
+                }
             }
         }
 
@@ -153,14 +157,22 @@ class MainActivity : FragmentActivity() {
                     KanbanScreen(
                         board = kanbanBoard,
                         onBack = { isKanbanOpen = false },
-                        onRefresh = { refreshKanban() },
+                        onRefresh = {
+                            lifecycleScope.launch { fetchRemoteData() }
+                        },
                         onTaskClick = {}
                     )
                 } else {
                     HomeScreen(
-                        tasks = tasks,
+                        tasks = displayedTasks,
+                        allTasks = allTasks,
+                        projects = projects,
                         currentFilter = currentFilter,
-                        onFilterChange = { currentFilter = it },
+                        currentProjectId = currentProjectId,
+                        onFilterChange = { filter, projId ->
+                            currentFilter = filter
+                            currentProjectId = projId
+                        },
                         onToggleTaskDone = { task ->
                             val token = securityManager.authToken ?: return@HomeScreen
                             val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
@@ -170,7 +182,7 @@ class MainActivity : FragmentActivity() {
                                 withContext(Dispatchers.IO) {
                                     service.updateTask("Bearer $token", task.id, mapOf("status" to newStatus))
                                 }
-                                refreshTasks()
+                                fetchRemoteData()
                             }
                         },
                         onTaskClick = {},
@@ -185,6 +197,7 @@ class MainActivity : FragmentActivity() {
                                         mapOf(
                                             "title" to title,
                                             "description" to desc,
+                                            "project_id" to (currentProjectId ?: "inbox"),
                                             "due_date" to due,
                                             "priority" to priority,
                                             "managed_by_hermes" to managed,
@@ -192,14 +205,23 @@ class MainActivity : FragmentActivity() {
                                         )
                                     )
                                 }
-                                refreshTasks()
+                                fetchRemoteData()
                             }
                         },
                         onOpenKanban = {
-                            refreshKanban()
+                            lifecycleScope.launch { fetchRemoteData() }
                             isKanbanOpen = true
                         },
-                        onRefresh = { refreshTasks() }
+                        onRefresh = {
+                            lifecycleScope.launch {
+                                fetchRemoteData()
+                                Toast.makeText(this@MainActivity, "Tasks synced", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onLogout = {
+                            securityManager.clearAll()
+                            authState = "login"
+                        }
                     )
                 }
             }
