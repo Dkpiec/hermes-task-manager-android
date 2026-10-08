@@ -58,6 +58,7 @@ class MainActivity : FragmentActivity() {
         var currentProjectId by remember { mutableStateOf<String?>(null) }
         var isKanbanOpen by remember { mutableStateOf(false) }
         var kanbanBoard by remember { mutableStateOf<Map<String, List<Task>>>(emptyMap()) }
+        var selectedTaskId by remember { mutableStateOf<String?>(null) }
 
         // Filtered tasks for the current screen
         val displayedTasks = remember(allTasks, currentFilter, currentProjectId) {
@@ -161,7 +162,7 @@ class MainActivity : FragmentActivity() {
                         onRefresh = {
                             lifecycleScope.launch { fetchRemoteData() }
                         },
-                        onTaskClick = {}
+                        onTaskClick = { task -> selectedTaskId = task.id }
                     )
                 } else {
                     HomeScreen(
@@ -186,7 +187,7 @@ class MainActivity : FragmentActivity() {
                                 fetchRemoteData()
                             }
                         },
-                        onTaskClick = {},
+                        onTaskClick = { task -> selectedTaskId = task.id },
                         onAddTask = { title, desc, due, priority, managed ->
                             val token = securityManager.authToken ?: return@HomeScreen
                             val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
@@ -222,6 +223,46 @@ class MainActivity : FragmentActivity() {
                         onLogout = {
                             securityManager.clearAll()
                             authState = "login"
+                        }
+                    )
+                }
+
+                if (selectedTaskId != null) {
+                    val token = securityManager.authToken ?: ""
+                    val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+                    val service = apiService ?: HermesApiService.create(targetUrl).also { apiService = it }
+
+                    TaskDetailBottomSheet(
+                        taskId = selectedTaskId!!,
+                        token = token,
+                        serverUrl = targetUrl,
+                        apiService = service,
+                        onDismiss = { selectedTaskId = null },
+                        onToggleDone = { task ->
+                            val newStatus = if (task.status == "done") "backlog" else "done"
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    service.updateTask("Bearer $token", task.id, mapOf("status" to newStatus))
+                                }
+                                fetchRemoteData()
+                            }
+                        },
+                        onDeleteTask = { task ->
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    service.deleteTask("Bearer $token", task.id)
+                                }
+                                fetchRemoteData()
+                            }
+                        },
+                        onTriggerHermes = { task ->
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    service.triggerTask("Bearer $token", task.id)
+                                }
+                                Toast.makeText(this@MainActivity, "Hermes execution triggered", Toast.LENGTH_SHORT).show()
+                                fetchRemoteData()
+                            }
                         }
                     )
                 }
