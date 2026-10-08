@@ -12,6 +12,11 @@ val P2Orange = Color(0xFFF49C18)
 val P3Blue = Color(0xFF4073D6)
 val P4Grey = Color(0xFF808080)
 
+val PriorityP1 = P1Red
+val PriorityP2 = P2Orange
+val PriorityP3 = P3Blue
+val PriorityP4 = P4Grey
+
 private val LightColorScheme = lightColorScheme(
     primary = TodoistRed,
     onPrimary = Color.White,
