@@ -17,6 +17,9 @@ import com.hermes.taskmanager.ui.theme.HermesTasksTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
+import java.net.ConnectException
+import java.net.UnknownHostException
 
 class MainActivity : FragmentActivity() {
 
@@ -27,9 +30,8 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         securityManager = SecurityManager(this)
 
-        if (securityManager.isLoggedIn) {
-            apiService = HermesApiService.create(securityManager.serverUrl)
-        }
+        val targetUrl = securityManager.serverUrl.ifBlank { DEFAULT_SERVER_URL }
+        apiService = HermesApiService.create(targetUrl)
 
         setContent {
             HermesTasksTheme {
@@ -96,28 +98,31 @@ class MainActivity : FragmentActivity() {
         when (authState) {
             "login" -> {
                 LoginScreen(
-                    initialServerUrl = securityManager.serverUrl,
-                    onLoginSuccess = { serverUrl, triggerPayload, pin ->
-                        val parts = triggerPayload.split(":")
-                        if (parts.size >= 3) {
-                            val user = parts[1]
-                            val pass = parts[2]
-                            lifecycleScope.launch {
-                                try {
-                                    val client = HermesApiService.create(serverUrl)
-                                    val tokenRes = withContext(Dispatchers.IO) {
-                                        client.login(LoginRequest(user, pass))
-                                    }
-                                    securityManager.serverUrl = serverUrl
-                                    securityManager.authToken = tokenRes.accessToken
-                                    if (!pin.isNullOrBlank()) {
-                                        securityManager.pinCode = pin
-                                    }
-                                    apiService = client
-                                    authState = if (securityManager.hasPin) "pin" else "home"
-                                } catch (e: Exception) {
-                                    Toast.makeText(this@MainActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    onLoginClick = { username, password, pin ->
+                        val targetUrl = DEFAULT_SERVER_URL
+                        lifecycleScope.launch {
+                            try {
+                                val client = HermesApiService.create(targetUrl)
+                                val tokenRes = withContext(Dispatchers.IO) {
+                                    client.login(LoginRequest(username, password))
                                 }
+                                securityManager.serverUrl = targetUrl
+                                securityManager.authToken = tokenRes.accessToken
+                                if (!pin.isNullOrBlank()) {
+                                    securityManager.pinCode = pin
+                                }
+                                apiService = client
+                                authState = if (securityManager.hasPin) "pin" else "home"
+                                Toast.makeText(this@MainActivity, "Connected to Hermes Cloud", Toast.LENGTH_SHORT).show()
+                            } catch (e: HttpException) {
+                                val msg = if (e.code() == 401) "Invalid username or password" else "Server error (${e.code()})"
+                                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                            } catch (e: UnknownHostException) {
+                                Toast.makeText(this@MainActivity, "Cannot resolve server host. Check network.", Toast.LENGTH_LONG).show()
+                            } catch (e: ConnectException) {
+                                Toast.makeText(this@MainActivity, "Connection refused. Server offline or unreachable.", Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(this@MainActivity, "Login failed: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
